@@ -1,0 +1,19 @@
+{
+  "name": "expenses-apk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal expense tracker packaged as an Android APK",
+  "main": "build-apk.js",
+  "scripts": {
+    "make-icon": "node make-icon.js",
+    "build-apk": "node build-apk.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "hbh-web2app": "^0.1.0"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
+}

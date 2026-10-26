@@ -1,0 +1,83 @@
+// android/csv-bridge.java.in — injected into the WebView template's MainActivity.
+//
+// hbh-web2app re-extracts templates/webview.zip on every build, so this snippet
+// is applied by build-apk.js to a *copy* of the template rather than by editing
+// node_modules. It exposes window.AndroidCsv.save(name, csv) to the page.
+//
+// Why a bridge is needed: the template's DownloadListener uses DownloadManager,
+// which runs in a separate system process and cannot read blob:/data: URLs held
+// in the WebView's memory. On API 29+ DownloadManager also needs a writable
+// destination, and the manifest declares WRITE_EXTERNAL_STORAGE with
+// maxSdkVersion="28". Writing through MediaStore avoids permissions entirely.
+
+// The imports go here (inserted after "import android.app.Activity;" by
+// build-apk.js). Everything below this line is the class body.
+
+    // ------------------------------------------------------------------
+    // CSV export bridge (added by build-apk.js)
+    // ------------------------------------------------------------------
+    private void setupCsvBridge() {
+        if (webView == null) return;
+        webView.addJavascriptInterface(new CsvBridge(), "AndroidCsv");
+    }
+
+    public class CsvBridge {
+
+        /** Writes CSV text into the device's Downloads collection.
+         *  @return "ok:<location>" on success, "error:<message>" otherwise. */
+        @JavascriptInterface
+        public String save(String fileName, String csv) {
+            String safeName = sanitizeFileName(fileName);
+            try {
+                String text = csv == null ? "" : csv;
+
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, safeName);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, "text/csv");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                    Uri target = getContentResolver()
+                            .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (target == null) return "error:Could not create the file in Downloads";
+
+                    OutputStream out = getContentResolver().openOutputStream(target);
+                    if (out == null) return "error:Could not open the download file";
+                    try {
+                        out.write(text.getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                    } finally {
+                        out.close();
+                    }
+                    return "ok:" + Environment.DIRECTORY_DOWNLOADS + "/" + safeName;
+                }
+
+                // Android 9 and below: no MediaStore.Downloads. App-specific
+                // external storage needs no runtime permission either.
+                File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                if (dir == null) dir = new File(getFilesDir(), "Downloads");
+                if (!dir.exists() && !dir.mkdirs()) return "error:Could not create output folder";
+
+                File file = new File(dir, safeName);
+                FileOutputStream fos = new FileOutputStream(file);
+                try {
+                    fos.write(text.getBytes(StandardCharsets.UTF_8));
+                    fos.flush();
+                } finally {
+                    fos.close();
+                }
+                return "ok:" + file.getAbsolutePath();
+            } catch (Exception e) {
+                return "error:" + (e.getMessage() == null ? e.toString() : e.getMessage());
+            }
+        }
+
+        /** Keeps the filename safe on every Android version. */
+        private String sanitizeFileName(String name) {
+            if (name == null || name.trim().isEmpty()) name = "expenses.csv";
+            String cleaned = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (!cleaned.toLowerCase(java.util.Locale.US).endsWith(".csv")) cleaned = cleaned + ".csv";
+            return cleaned;
+        }
+    }
+    // ------------------------------------------------------------------

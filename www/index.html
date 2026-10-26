@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Expense Tracker</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-alt: #f8f9fb;
+    --border: #e3e6ec;
+    --text: #1c2024;
+    --text-muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
+    --radius: 10px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a;
+      --surface: #1b1f26;
+      --surface-alt: #22272f;
+      --border: #2e343d;
+      --text: #e9edf2;
+      --text-muted: #9aa4b2;
+      --accent: #4f8cff;
+      --accent-hover: #6b9dff;
+      --danger: #f87171;
+      --danger-soft: #2a1c1f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 1px 3px rgba(0, 0, 0, .3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 24px 16px calc(40px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  header { margin-bottom: 20px; }
+
+  h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+
+  .subtitle {
+    margin: 2px 0 0;
+    font-size: .875rem;
+    color: var(--text-muted);
+  }
+
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  /* ---------- Export ---------- */
+  .btn-export {
+    flex: 0 0 auto;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 9px 14px;
+    min-height: 40px;
+    white-space: nowrap;
+    box-shadow: var(--shadow);
+  }
+
+  .btn-export:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-export:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  .export-status {
+    margin: 10px 0 0;
+    font-size: .82rem;
+    min-height: 1.1em;
+    color: var(--text-muted);
+  }
+
+  .export-status.ok { color: #15803d; }
+  .export-status.err { color: var(--danger); }
+
+  @media (prefers-color-scheme: dark) {
+    .export-status.ok { color: #4ade80; }
+  }
+
+  /* Fallback panel used when no download mechanism is available */
+  .fallback {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .fallback p {
+    margin: 0 0 8px;
+    font-size: .85rem;
+    color: var(--text-muted);
+  }
+
+  .fallback textarea {
+    width: 100%;
+    min-height: 140px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .8rem;
+    line-height: 1.4;
+    color: var(--text);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    resize: vertical;
+  }
+
+  /* ---------- Add form ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+
+  form.add-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .input-wrap { position: relative; display: flex; }
+
+  .prefix {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+    font-size: 1rem;
+  }
+
+  input {
+    width: 100%;
+    font: inherit;
+    font-size: 16px; /* prevents iOS zoom-on-focus */
+    color: var(--text);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 12px;
+    min-height: 46px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  .input-wrap input { padding-left: 28px; }
+
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .18);
+  }
+
+  input[aria-invalid="true"] {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .14);
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: background-color .15s, color .15s, border-color .15s;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    padding: 12px 18px;
+    min-height: 46px;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .error {
+    margin: 0;
+    min-height: 1.1em;
+    font-size: .8rem;
+    color: var(--danger);
+    line-height: 1.1;
+  }
+
+  /* ---------- Month sections ---------- */
+  .months { display: flex; flex-direction: column; gap: 16px; }
+
+  .month-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .month-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .month-total {
+    font-size: 1.05rem;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .expense-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .expense-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .expense-row:last-child { border-bottom: none; }
+
+  .expense-date {
+    font-size: .9rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex: 1 1 auto;
+  }
+
+  .expense-amount {
+    font-size: .95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .btn-delete {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .btn-delete:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+
+  /* ---------- Empty state ---------- */
+  .empty {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--text-muted);
+    font-size: .925rem;
+  }
+
+  .empty strong {
+    display: block;
+    color: var(--text);
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ---------- Wider screens ---------- */
+  @media (min-width: 560px) {
+    body { padding-top: 40px; }
+    h1 { font-size: 1.8rem; }
+    form.add-form {
+      grid-template-columns: 1fr 1fr auto;
+      align-items: start;
+    }
+    .btn-primary { width: auto; padding-inline: 26px; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <div class="header-row">
+      <div>
+        <h1>Expense Tracker</h1>
+        <p class="subtitle">Amounts in NZD &middot; saved on this device</p>
+      </div>
+      <button id="export-btn" class="btn-export" type="button" disabled>Export CSV</button>
+    </div>
+    <p id="export-status" class="export-status" role="status" aria-live="polite"></p>
+  </header>
+
+  <form id="expense-form" class="card add-form" novalidate>
+    <div class="field">
+      <label for="amount">Amount (NZD)</label>
+      <div class="input-wrap">
+        <span class="prefix" aria-hidden="true">$</span>
+        <input id="amount" name="amount" type="number" inputmode="decimal"
+               step="0.01" min="0.01" placeholder="0.00" autocomplete="off"
+               aria-describedby="amount-error" required>
+      </div>
+      <p class="error" id="amount-error" role="alert"></p>
+    </div>
+
+    <div class="field">
+      <label for="date">Date</label>
+      <input id="date" name="date" type="date"
+             aria-describedby="date-error" required>
+      <p class="error" id="date-error" role="alert"></p>
+    </div>
+
+    <div class="field">
+      <label class="sr-only" for="add-btn">Add expense</label>
+      <button id="add-btn" class="btn-primary" type="submit">Add</button>
+    </div>
+  </form>
+
+  <div id="months" class="months"></div>
+
+  <div id="empty" class="card empty" hidden>
+    <strong>No expenses yet</strong>
+    Enter an amount and date above to get started.
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+     Constants + formatters
+     ===================================================================== */
+
+  var STORAGE_KEY = 'expenseTracker.v1';
+
+  var currencyFormatter = new Intl.NumberFormat('en-NZ', {
+    style: 'currency',
+    currency: 'NZD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  var MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  /* =====================================================================
+     Element references
+     ===================================================================== */
+
+  var form = document.getElementById('expense-form');
+  var amountInput = document.getElementById('amount');
+  var dateInput = document.getElementById('date');
+  var amountError = document.getElementById('amount-error');
+  var dateError = document.getElementById('date-error');
+  var monthsContainer = document.getElementById('months');
+  var emptyState = document.getElementById('empty');
+  var exportBtn = document.getElementById('export-btn');
+  var exportStatus = document.getElementById('export-status');
+
+  /* =====================================================================
+     Helpers
+     ===================================================================== */
+
+  function createId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    // Fallback for engines without crypto.randomUUID
+    return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  }
+
+  // Local "today" as YYYY-MM-DD. Deliberately not toISOString(), which is UTC
+  // and can report the wrong day for users ahead of/behind UTC.
+  function todayISO() {
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = String(now.getMonth() + 1).padStart(2, '0');
+    var d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+
+  function isValidDateString(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    var parts = value.split('-');
+    var y = Number(parts[0]);
+    var m = Number(parts[1]);
+    var d = Number(parts[2]);
+    if (m < 1 || m > 12) return false;
+    if (d < 1 || d > 31) return false;
+    // Reject impossible dates such as 2026-02-30
+    var probe = new Date(y, m - 1, d);
+    return probe.getFullYear() === y && probe.getMonth() === m - 1 && probe.getDate() === d;
+  }
+
+  function formatMonthTitle(monthKey) {
+    var parts = monthKey.split('-');
+    var year = Number(parts[0]);
+    var monthIndex = Number(parts[1]) - 1;
+    var name = MONTH_NAMES[monthIndex];
+    if (!name) return monthKey;
+    return name + ' ' + year;
+  }
+
+  function formatMoney(cents) {
+    return currencyFormatter.format(cents / 100);
+  }
+
+  // "2026-10-08" -> "8 Oct 2026"
+  function formatDateLabel(isoDate) {
+    var parts = isoDate.split('-');
+    var day = Number(parts[2]);
+    var name = MONTH_NAMES[Number(parts[1]) - 1];
+    if (!name) return isoDate;
+    return day + ' ' + name.slice(0, 3) + ' ' + parts[0];
+  }
+
+  /* =====================================================================
+     State + persistence
+     ===================================================================== */
+
+  var expenses = [];   // [{ id, amountCents, date, createdAt }]
+
+  function showStorageWarning(message) {
+    if (typeof console !== 'undefined' && console.warn) console.warn(message);
+    var banner = document.getElementById('storage-warning');
+    if (!banner) {
+      banner = document.createElement('p');
+      banner.id = 'storage-warning';
+      banner.setAttribute('role', 'status');
+      banner.style.cssText = 'margin:0 0 16px;padding:10px 14px;border-radius:10px;' +
+        'background:var(--danger-soft);color:var(--danger);font-size:.85rem;' +
+        'border:1px solid var(--danger);';
+      document.querySelector('.app').insertBefore(banner, form);
+    }
+    banner.textContent = message;
+  }
+
+  // Validates one stored record; returns a clean copy or null if unusable.
+  function sanitiseRecord(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var cents = raw.amountCents;
+    if (typeof cents !== 'number' || !isFinite(cents) || cents <= 0) return null;
+    if (!isValidDateString(raw.date)) return null;
+    return {
+      id: typeof raw.id === 'string' && raw.id ? raw.id : createId(),
+      amountCents: Math.round(cents),
+      date: raw.date,
+      createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : 0
+    };
+  }
+
+  function loadExpenses() {
+    var raw;
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (err) {
+      // localStorage throws if it is disabled by browser policy
+      showStorageWarning('Storage is unavailable, so changes will not be saved.');
+      return [];
+    }
+    if (!raw) return [];
+
+    var parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      showStorageWarning('Saved data could not be read and was skipped.');
+      return [];
+    }
+
+    var list = parsed && Array.isArray(parsed.expenses) ? parsed.expenses : [];
+    var result = [];
+    for (var i = 0; i < list.length; i++) {
+      var record = sanitiseRecord(list[i]);
+      if (record) result.push(record);
+    }
+    return result;
+  }
+
+  function saveExpenses() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: 1,
+        expenses: expenses
+      }));
+      return true;
+    } catch (err) {
+      showStorageWarning('Could not save to browser storage. Your last change may be lost on reload.');
+      return false;
+    }
+  }
+
+  /* =====================================================================
+     Grouping + sorting
+     ===================================================================== */
+
+  // Returns [{ key: '2026-10', totalCents, items: [...] }, ...], newest month first.
+  function groupByMonth(list) {
+    var byKey = Object.create(null);
+    var order = [];
+
+    for (var i = 0; i < list.length; i++) {
+      var item = list[i];
+      var key = item.date.slice(0, 7);
+      if (!byKey[key]) {
+        byKey[key] = { key: key, totalCents: 0, items: [] };
+        order.push(key);
+      }
+      byKey[key].totalCents += item.amountCents;
+      byKey[key].items.push(item);
+    }
+
+    // Newest month first. 'YYYY-MM' keys sort correctly as plain strings.
+    order.sort(function (a, b) { return a < b ? 1 : a > b ? -1 : 0; });
+
+    return order.map(function (key) {
+      var group = byKey[key];
+      group.items.sort(function (a, b) {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        // Same day: most recently added first, so a new entry lands on top
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+      return group;
+    });
+  }
+
+  /* =====================================================================
+     Rendering
+     ===================================================================== */
+
+  function render() {
+    monthsContainer.textContent = '';
+    exportBtn.disabled = expenses.length === 0;
+
+    if (expenses.length === 0) {
+      emptyState.hidden = false;
+      return;
+    }
+    emptyState.hidden = true;
+
+    var groups = groupByMonth(expenses);
+    var fragment = document.createDocumentFragment();
+
+    groups.forEach(function (group) {
+      var section = document.createElement('section');
+      section.className = 'card';
+      section.setAttribute('aria-labelledby', 'month-' + group.key);
+
+      var head = document.createElement('div');
+      head.className = 'month-head';
+
+      var monthLabel = formatMonthTitle(group.key);
+
+      var title = document.createElement('h2');
+      title.className = 'month-title';
+      title.id = 'month-' + group.key;
+      title.textContent = monthLabel;
+
+      var total = document.createElement('span');
+      total.className = 'month-total';
+      total.textContent = formatMoney(group.totalCents);
+      total.setAttribute('aria-label',
+        'Total for ' + monthLabel + ': ' + formatMoney(group.totalCents));
+
+      head.appendChild(title);
+      head.appendChild(total);
+      section.appendChild(head);
+
+      var list = document.createElement('ul');
+      list.className = 'expense-list';
+
+      group.items.forEach(function (item) {
+        var row = document.createElement('li');
+        row.className = 'expense-row';
+
+        var dateLabel = document.createElement('span');
+        dateLabel.className = 'expense-date';
+        dateLabel.textContent = formatDateLabel(item.date);
+
+        var amountLabel = document.createElement('span');
+        amountLabel.className = 'expense-amount';
+        amountLabel.textContent = formatMoney(item.amountCents);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn-delete';
+        del.dataset.id = item.id;
+        del.title = 'Delete';
+        del.setAttribute('aria-label',
+          'Delete expense of ' + formatMoney(item.amountCents) +
+          ' on ' + formatDateLabel(item.date));
+        del.textContent = '\u2715';   // renders as a clean cross
+
+        row.appendChild(dateLabel);
+        row.appendChild(amountLabel);
+        row.appendChild(del);
+        list.appendChild(row);
+      });
+
+      section.appendChild(list);
+      fragment.appendChild(section);
+    });
+
+    monthsContainer.appendChild(fragment);
+  }
+
+  /* =====================================================================
+     Validation
+     ===================================================================== */
+
+  function setError(input, errorEl, message) {
+    errorEl.textContent = message || '';
+    if (message) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  }
+
+  // Returns integer cents, or null if the raw string is not a valid NZD amount.
+  function parseAmountToCents(rawValue) {
+    var value = String(rawValue == null ? '' : rawValue).trim();
+    if (value === '') return null;
+
+    // Check decimals from the raw text: Number() would accept values such as
+    // 1.005 that the field is supposed to reject.
+    if (!/^\d*\.?\d*$/.test(value)) return null;
+    var dotIndex = value.indexOf('.');
+    if (dotIndex !== -1 && value.length - dotIndex - 1 > 2) return null;
+
+    var num = Number(value);
+    if (!isFinite(num) || num <= 0) return null;
+
+    var cents = Math.round(num * 100);
+    if (cents <= 0) return null;   // e.g. "0.001" rounds to zero
+    return cents;
+  }
+
+  /* =====================================================================
+     Actions
+     ===================================================================== */
+
+  function handleSubmit(event) {
+    event.preventDefault();
+
+    var cents = parseAmountToCents(amountInput.value);
+    var dateValue = dateInput.value;
+    var valid = true;
+
+    if (cents === null) {
+      setError(amountInput, amountError, 'Enter an amount greater than 0 (max 2 decimals).');
+      valid = false;
+    } else {
+      setError(amountInput, amountError, '');
+    }
+
+    if (!isValidDateString(dateValue)) {
+      setError(dateInput, dateError, 'Choose a valid date.');
+      valid = false;
+    } else {
+      setError(dateInput, dateError, '');
+    }
+
+    if (!valid) {
+      if (cents === null) amountInput.focus();
+      else dateInput.focus();
+      return;
+    }
+
+    expenses.push({
+      id: createId(),
+      amountCents: cents,
+      date: dateValue,
+      createdAt: Date.now()
+    });
+
+    saveExpenses();
+    render();
+
+    form.reset();
+    dateInput.value = todayISO();
+    setError(amountInput, amountError, '');
+    setError(dateInput, dateError, '');
+    amountInput.focus();
+  }
+
+  function handleDelete(id) {
+    var index = -1;
+    for (var i = 0; i < expenses.length; i++) {
+      if (expenses[i].id === id) { index = i; break; }
+    }
+    if (index === -1) return;
+
+    expenses.splice(index, 1);
+    saveExpenses();
+    render();
+  }
+
+  /* =====================================================================
+     CSV export
+     ===================================================================== */
+
+  var EXPORT_HEADER = ['Date', 'Amount'];
+
+  // RFC 4180 escaping: quote when the value contains a comma, a double quote,
+  // a line break, or leading/trailing whitespace. Quotes inside are doubled.
+  function csvEscape(value) {
+    var text = value == null ? '' : String(value);
+    if (/[",\r\n]/.test(text) || /^\s|\s$/.test(text)) {
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+    return text;
+  }
+
+  // Amounts are plain numbers with two decimals and no currency symbol, so
+  // Excel and Sheets treat the column as numeric.
+  function amountForCsv(cents) {
+    return (cents / 100).toFixed(2);
+  }
+
+  // Oldest first, then by insertion order for records on the same day, so the
+  // output is stable across exports.
+  function sortedForExport(list) {
+    return list.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+  }
+
+  function buildCsv(list) {
+    var lines = [EXPORT_HEADER.map(csvEscape).join(',')];
+    sortedForExport(list).forEach(function (item) {
+      lines.push([csvEscape(item.date), csvEscape(amountForCsv(item.amountCents))].join(','));
+    });
+    // Trailing newline keeps stricter parsers happy.
+    return lines.join('\r\n') + '\r\n';
+  }
+
+  function exportFileName() {
+    return 'expenses-' + todayISO() + '.csv';
+  }
+
+  function showExportStatus(message, kind) {
+    exportStatus.textContent = message || '';
+    exportStatus.className = 'export-status' + (kind ? ' ' + kind : '');
+  }
+
+  // UTF-8 BOM so Excel decodes non-ASCII correctly instead of guessing ANSI.
+  function csvWithBom(csv) {
+    return '\ufeff' + csv;
+  }
+
+  function base64Utf8(text) {
+    var bytes = new TextEncoder().encode(text);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  // Trigger a download in a normal browser. A data: URI is used instead of a
+  // blob: URL because blob URLs are unreliable on file:// origins, which is how
+  // the APK serves the page.
+  function downloadViaAnchor(csv, fileName) {
+    var href = 'data:text/csv;charset=utf-8;base64,' + base64Utf8(csvWithBom(csv));
+    var link = document.createElement('a');
+    link.href = href;
+    link.download = fileName;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Android bridge injected by build-apk.js: window.AndroidCsv.save(name, csv)
+  // writes straight into the Downloads collection via MediaStore.
+  function saveViaAndroidBridge(csv, fileName) {
+    var bridge = window.AndroidCsv;
+    if (!bridge || typeof bridge.save !== 'function') return null;
+    var result = String(bridge.save(fileName, csvWithBom(csv)) || '');
+    if (result.indexOf('ok:') === 0) {
+      return { ok: true, location: result.slice(3) };
+    }
+    return { ok: false, message: result.replace(/^error:/, '') || 'Unknown error' };
+  }
+
+  function shareCsv(csv, fileName) {
+    if (!navigator.share || typeof File !== 'function') return Promise.resolve(false);
+    var file;
+    try {
+      file = new File([csvWithBom(csv)], fileName, { type: 'text/csv' });
+    } catch (err) {
+      return Promise.resolve(false);
+    }
+    if (navigator.canShare && !navigator.canShare({ files: [file] })) {
+      return Promise.resolve(false);
+    }
+    return navigator
+      .share({ files: [file], title: 'Expenses CSV' })
+      .then(function () { return true; })
+      .catch(function () { return false; }); // user dismissed the share sheet
+  }
+
+  // Last resort: show the CSV so it can be copied into a spreadsheet manually.
+  function showCsvFallback(csv) {
+    var existing = document.getElementById('csv-fallback');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+    var panel = document.createElement('div');
+    panel.id = 'csv-fallback';
+    panel.className = 'fallback';
+
+    var note = document.createElement('p');
+    note.textContent = 'Copy this text and paste it into a .csv file or a spreadsheet.';
+
+    var area = document.createElement('textarea');
+    area.readOnly = true;
+    area.spellcheck = false;
+    area.value = csvWithBom(csv);
+
+    panel.appendChild(note);
+    panel.appendChild(area);
+    exportStatus.parentNode.insertBefore(panel, exportStatus.nextSibling);
+
+    area.focus();
+    area.select();
+  }
+
+  function handleExport() {
+    if (expenses.length === 0) {
+      showExportStatus('Nothing to export yet.');
+      return;
+    }
+
+    var csv;
+    var fileName = exportFileName();
+    try {
+      csv = buildCsv(expenses);
+    } catch (err) {
+      showExportStatus('Could not build the CSV: ' + err.message, 'err');
+      return;
+    }
+
+    // 1. Android WebView bridge: writes a real file into Downloads.
+    var bridgeResult = null;
+    try {
+      bridgeResult = saveViaAndroidBridge(csv, fileName);
+    } catch (err) {
+      bridgeResult = { ok: false, message: err.message || String(err) };
+    }
+
+    if (bridgeResult) {
+      if (bridgeResult.ok) {
+        showExportStatus('Saved ' + expenses.length + ' records to ' + bridgeResult.location, 'ok');
+      } else {
+        showExportStatus('Export failed: ' + bridgeResult.message, 'err');
+      }
+      return;
+    }
+
+    // 2. Normal browser download.
+    try {
+      downloadViaAnchor(csv, fileName);
+      showExportStatus('Downloaded ' + fileName + ' (' + expenses.length + ' records)', 'ok');
+      return;
+    } catch (err) {
+      // fall through to sharing / manual copy
+    }
+
+    // 3. Share sheet, then 4. manual copy panel.
+    shareCsv(csv, fileName).then(function (shared) {
+      if (shared) {
+        showExportStatus('CSV shared.', 'ok');
+      } else {
+        showCsvFallback(csv);
+        showExportStatus('Select and copy the CSV below.');
+      }
+    });
+  }
+
+  /* =====================================================================
+     Wiring + init
+     ===================================================================== */
+
+  form.addEventListener('submit', handleSubmit);
+
+  exportBtn.addEventListener('click', handleExport);
+
+  amountInput.addEventListener('input', function () {
+    if (amountError.textContent) setError(amountInput, amountError, '');
+  });
+
+  dateInput.addEventListener('input', function () {
+    if (dateError.textContent) setError(dateInput, dateError, '');
+  });
+
+  // Event delegation: survives re-renders and keeps row markup simple.
+  monthsContainer.addEventListener('click', function (event) {
+    var target = event.target;
+    while (target && target !== monthsContainer && !target.classList.contains('btn-delete')) {
+      target = target.parentNode;
+    }
+    if (!target || target === monthsContainer) return;
+    handleDelete(target.dataset.id);
+  });
+
+  dateInput.value = todayISO();
+  expenses = loadExpenses();
+  render();
+})();
+</script>
+</body>
+</html>
